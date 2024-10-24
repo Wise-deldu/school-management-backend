@@ -9,7 +9,7 @@ const gradeRoutes = require('./routes/gradeRoutes');
 dotenv.config();
 
 const app = express();
-const port = process.env.PORT || 3000;
+const port = parseInt(process.env.PORT, 10) || 3000;
 
 // Middleware
 app.use(express.json());

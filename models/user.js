@@ -1,24 +1,77 @@
-const pool = require('../config/db');
-const bcrypt = require('bcrypt');
+const { DataTypes, Model } = require('sequelize');
+const sequelize = require('../config/db');
 
-class User {
-  static async create(username, password, role) {
-    const hashedPassword = await bcrypt.hash(password, 10);
-    const query = `
-      INSERT INTO user (username, password, role)
-      VALUES ($1, $2, $3)
-      RETURNING id, username, role
-      `;
-    const values = [username, hashedPassword, role];
-    const { rows } = await pool.query(query, values);
-    return rows[0];
+
+// Define the User model
+class User extends Model {
+  // Static method to create a new user
+  static async createUser(id, username, hashedPassword, role, staffID, studentID) {
+    return await User.create({ id, username, password: hashedPassword, role, staffID, studentID });
   }
 
+  // Static method to find a user by username
   static async findByUsername(username) {
-    const query = 'SELECT * FROM users WHERE username = $1';
-    const { rows } = await pool.query(query, [username]);
-    return rows[0];
+    return await User.findOne({ where: { username } });
+  }
+
+  // Instance method to validate password
+  async validatePassword(password, bcrypt) {
+    return await bcrypt.compare(password, this.password);
   }
 }
+
+// Initialize the User model schema
+User.init(
+  {
+    id: {
+      type: DataTypes.STRING(20),
+      allowNull: true,
+      primaryKey: true,
+      unique: true,
+      autoIncrement: true, // Generate a UUID and limit it to 20 characters
+    },
+    username: {
+      type: DataTypes.STRING(20), // Limit username to 20 characters
+      allowNull: true,
+      unique: true,
+      validate: {
+        len: [1, 20], // Ensure username is between 1 and 20 characters
+      },
+    },
+    staffID: {
+      type: DataTypes.STRING(50), // Limit username to 20 characters
+      allowNull: true,
+      unique: true,
+      validate: {
+        len: [1, 20], // Ensure username is between 1 and 20 characters
+      },
+    },
+    studentID: {
+      type: DataTypes.STRING(50), // Limit username to 20 characters
+      allowNull: true,
+      unique: true,
+      validate: {
+        len: [1, 20], // Ensure username is between 1 and 20 characters
+      },
+    },
+    password: {
+      type: DataTypes.STRING(60), // Store hashed password (bcrypt length is ~60)
+      allowNull: true,
+    },
+    role: {
+      type: DataTypes.STRING(20), // Ensure role does not exceed 20 characters
+      defaultValue: 'user',
+      validate: {
+        len: [1, 20], // Ensure role is between 1 and 20 characters
+      },
+    },
+  },
+  {
+    sequelize,
+    modelName: 'User',
+    tableName: 'users', // Map to the 'users' table
+    timestamps: false, // Disable createdAt and updatedAt fields
+  }
+);
 
 module.exports = User;
