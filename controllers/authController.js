@@ -1,33 +1,82 @@
 require('dotenv').config();
 const jwt = require('jsonwebtoken');
 const bcrypt = require('bcrypt');
+const { Op } = require('sequelize'); // Import Sequelize operators
 const User = require('../models/user'); // Assuming Sequelize ORM is used
 const SALT_ROUNDS = 12; // Set salt rounds for bcrypt
+
+// Generate the next staffID with "STA" prefix
+async function generateNextStaffID() {
+  const lastUser = await User.findOne({
+    attributes: ['staffID'],
+    where: { staffID: { [Op.like]: 'STA%' } },
+    order: [['staffID', 'DESC']],
+  });
+
+  if (!lastUser) return 'STA0001'; // Start from 'STA0001' if no users exist
+
+  const lastNumericPart = parseInt(lastUser.staffID.slice(3), 10); // Extract numeric part
+  const nextNumericPart = (lastNumericPart + 1).toString().padStart(4, '0'); // Pad with zeros
+
+  return `STA${nextNumericPart}`; // Return the new staffID
+}
+
+// Generate the next studentID with "STU" prefix
+async function generateNextStudentID() {
+  const lastUser = await User.findOne({
+    attributes: ['studentID'],
+    where: { studentID: { [Op.like]: 'STU%' } },
+    order: [['studentID', 'DESC']],
+  });
+
+  if (!lastUser) return 'STU00001'; // Start from 'STU00001' if no users exist
+
+  const lastNumericPart = parseInt(lastUser.studentID.slice(3), 10); // Extract numeric part
+  const nextNumericPart = (lastNumericPart + 1).toString().padStart(5, '0'); // Pad with zeros
+
+  return `STU${nextNumericPart}`; // Return the new studentiD
+}
+
 exports.register = async (req, res) => {
   try {
-    const { username, password, role , staffID, studentID} = req.body;
+    const { username, password, role } = req.body;
 
     // Validate the required fields
-    if (!username || !password || !role ) {
+    if (!username || !password || !role) {
       return res.status(400).json({ error: 'Username, password, and role are required.' });
     }
 
     // Hash the password before storing it
     const hashedPassword = await bcrypt.hash(password, SALT_ROUNDS);
 
+    // Generate staffID or studentID based on role
+    let staffID = null;
+    let studentID = null;
+    if (role === 'staff') {
+      staffID = await generateNextStaffID();
+    } else if (role === 'student') {
+      studentID = await generateNextStudentID();
+    }
+
     // Create a new user using Sequelize's create method
     const user = await User.create({
-      username,  // Make sure this is correct
+      username,
       password: hashedPassword,
       role,
       staffID,
-      studentID
+      studentID,
     });
 
     // Return the user data in the response
     res.status(201).json({
       message: 'User registered successfully',
-      user: { id: user.id, username: user.username, role: user.role, staffID: user.staffID, studentID: user.studentID },
+      user: {
+        id: user.id,
+        username: user.username,
+        role: user.role,
+        staffID: user.staffID,
+        studentID: user.studentID,
+      },
     });
   } catch (error) {
     console.error('Error during registration:', error);
@@ -43,7 +92,8 @@ exports.login = async (req, res) => {
   try {
     const { username, password } = req.body;
 
-    const user = await User.findByUsername(username);
+    // Use Sequelize's findOne instead of a custom method
+    const user = await User.findOne({ where: { username } });
     if (!user) {
       return res.status(401).json({ error: 'Invalid credentials' });
     }

@@ -19,6 +19,7 @@ app.use('/api/auth', authRoutes);
 app.use('/api/students', studentRoutes);
 app.use('/api/attendance', attendanceRoutes);
 app.use('/api/grades', gradeRoutes);
+app.use('/api/students', studentRoutes);
 
 // Home route
 app.get('/', (req, res) => {
