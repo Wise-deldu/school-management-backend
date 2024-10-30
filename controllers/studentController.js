@@ -3,56 +3,46 @@ const { Op } = require('sequelize'); // For Sequelize queries
 
 // Add a new student with auto-generated admission number
 exports.addStudent = async (req, res) => {
-    try {
-      const { firstName, lastName, class: studentClass } = req.body;
-  
-      // Validate input
-      if (!firstName || !lastName || !studentClass) {
-        return res.status(400).json({ error: 'All fields are required' });
-      }
-  
-      // Get the current year in "YY" format (e.g., "24" for 2024)
-      const currentYear = new Date().getFullYear().toString().slice(-2);
-  
-      // Find the highest existing admission number for the current year
-      const lastStudent = await Student.findOne({
-        where: {
-          admissionNumber: { [Op.like]: `${currentYear}%` },
-        },
-        order: [['admissionNumber', 'DESC']], // Sort by admission number in descending order
-      });
-  
-      // Determine the next admission number
-      let nextNumber;
-      if (lastStudent) {
-        // Increment the last number by 1
-        const lastNumber = parseInt(lastStudent.admissionNumber.slice(2)); // Extract the numeric part
-        nextNumber = lastNumber + 1;
-      } else {
-        // If no student exists for the year, start with the first number
-        nextNumber = parseInt(`${currentYear}0001`);
-      }
-  
-      // Format the next number with leading zeros (e.g., 0240001)
-      const admissionNumber = nextNumber.toString().padStart(7, '0');
-  
-      // Create the new student
-      const student = await Student.create({
-        firstName,
-        lastName,
-        class: studentClass,
-        admissionNumber,
-      });
-  
-      res.status(201).json({
-        message: 'Student added successfully',
-        student,
-      });
-    } catch (error) {
-      console.error('Error adding student:', error);
-      res.status(500).json({ error: 'Internal server error' });
+  try {
+    // Check if the authenticated user has an 'admin' role
+    if (req.user.role !== 'admin') {
+      return res.status(403).json({ error: 'Access denied. Admins only.' });
     }
+
+    const { firstName, lastName, class: studentClass } = req.body;
+
+    // Validate input
+    if (!firstName || !lastName || !studentClass) {
+      return res.status(400).json({ error: 'All fields are required' });
+    }
+
+    const currentYear = new Date().getFullYear().toString().slice(-2);
+
+    const lastStudent = await Student.findOne({
+      where: { admissionNumber: { [Op.like]: `${currentYear}%` } },
+      order: [['admissionNumber', 'DESC']],
+    });
+
+    let nextNumber = lastStudent
+      ? parseInt(lastStudent.admissionNumber.slice(2)) + 1
+      : parseInt(`${currentYear}0001`);
+
+    const admissionNumber = nextNumber.toString().padStart(7, '0');
+
+    const student = await Student.create({
+      firstName,
+      lastName,
+      class: studentClass,
+      admissionNumber,
+    });
+
+    res.status(201).json({ message: 'Student added successfully', student });
+  } catch (error) {
+    console.error('Error adding student:', error);
+    res.status(500).json({ error: 'Internal server error' });
+  }
 };
+
 
 // Get all students
 exports.getAllStudents = async (req, res) => {

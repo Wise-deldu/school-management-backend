@@ -7,7 +7,7 @@ router.post('/register', register);
 router.post('/login', login);
 
 // CRUD Routes for Users
-router.get('/get', getUser);  
+router.get('/get', getUser);
 router.delete('/delete', deleteUser);
 router.put('/update', updateUser);    // Get a user by ID
 

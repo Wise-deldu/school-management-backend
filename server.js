@@ -1,11 +1,13 @@
 const express = require('express');
 const dotenv = require('dotenv');
+const bcrypt = require('bcrypt');
 const authRoutes = require('./routes/authRoutes');
 const studentRoutes = require('./routes/studentRoutes');
 const attendanceRoutes = require('./routes/attendanceRoutes');
 const gradeRoutes = require('./routes/gradeRoutes');
+const User = require('./models/user'); // Import the Usr model
 
-
+// Load environment variables
 dotenv.config();
 
 const app = express();
@@ -19,7 +21,7 @@ app.use('/api/auth', authRoutes);
 app.use('/api/students', studentRoutes);
 app.use('/api/attendance', attendanceRoutes);
 app.use('/api/grades', gradeRoutes);
-app.use('/api/students', studentRoutes);
+
 
 // Home route
 app.get('/', (req, res) => {
@@ -37,7 +39,34 @@ app.use((err, req, res, next) => {
   res.status(500).json({ error: 'Something went wrong' });
 });
 
+// Function to seed the first admin
+const seedAdmin = async () => {
+  try {
+    const admin = await User.findOne({ where: { role: 'admin' } });
+    console.log('Checking for admin user...');
+
+    if (!admin) {
+      const hashedPassword = await bcrypt.hash(process.env.ADMIN_PASSWORD, 10);
+      await User.create({
+        username: process.env.ADMIN_USERNAME,
+        password: hashedPassword,
+        role: 'admin',
+      });
+      console.log('Admin user created.');
+    } else {
+      console.log('Admin user already exists.');
+    }
+  } catch (error) {
+    console.error('Error seeding admin:', error);
+  }
+};
+
 // Start the server
-app.listen(port, () => {
-  console.log(`Server is running on port ${port}`);
-});
+const startServer = async () => {
+  await seedAdmin(); // Ensure the admin user is created before starting the server
+  app.listen(port, () => {
+    console.log(`🚀Server is running on http://localhost:${port}`);
+  });
+};
+
+startServer();

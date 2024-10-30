@@ -46,6 +46,14 @@ exports.register = async (req, res) => {
       return res.status(400).json({ error: 'Username, password, and role are required.' });
     }
 
+    // Check if the user is trying to create an admin
+    if (role === 'admin') {
+      const userCount = await User.count({ where: { role: 'admin' } });
+      if (userCount > 0) {
+        return res.status(403).json({ error: 'Admin user already exists. Only one admin can be created.' });
+      }
+    }
+
     // Hash the password before storing it
     const hashedPassword = await bcrypt.hash(password, SALT_ROUNDS);
 
@@ -92,30 +100,40 @@ exports.login = async (req, res) => {
   try {
     const { username, password } = req.body;
 
-    // Use Sequelize's findOne instead of a custom method
+    // Check if username is provided
+    if (!username || !password) {
+      return res.status(400).json({ error: 'Username and password are required' });
+    }
+
+    // Find the user by username
     const user = await User.findOne({ where: { username } });
     if (!user) {
+      console.log(`No user found with username: ${username}`);
       return res.status(401).json({ error: 'Invalid credentials' });
     }
 
-    // Validate password using bcrypt
+    // Compare the provided password with the hashed password from the database
     const validPassword = await bcrypt.compare(password, user.password);
     if (!validPassword) {
+      console.log('Password mismatch');
       return res.status(401).json({ error: 'Invalid credentials' });
     }
 
+    // Ensure JWT secret is set
     if (!process.env.JWT_SECRET) {
       console.error('JWT secret not configured');
       return res.status(500).json({ error: 'JWT secret not configured' });
     }
 
+    // Generate JWT token
     const token = jwt.sign(
       { id: user.id, username: user.username, role: user.role },
       process.env.JWT_SECRET,
       { expiresIn: '1h' }
     );
 
-    res.json({ token });
+    console.log(`User ${username} logged in successfully`);
+    res.status(200).json({ token });
   } catch (error) {
     console.error('Error during login:', error);
     res.status(500).json({ error: 'Internal server error' });
